@@ -258,6 +258,17 @@ $app->command('on-latest-version', function () use ($version) {
 })->descriptions('Determine if this is the latest version of Valet');
 
 /**
+ * Swap PHP version
+ */
+$app->command('chphp [phpName]', function ($phpName) {
+    Caddy::stop();
+    $version = Brew::changeLinkedPhp($phpName);
+    Caddy::restart();
+    PhpFpm::install();
+    output("Now using PHP {$version}");
+})->descriptions('Change the PHP version using brew');
+
+/**
  * Load all of the Valet extensions.
  */
 foreach (Valet::extensions() as $extension) {

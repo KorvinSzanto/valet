@@ -173,4 +173,47 @@ class Brew
         $this->files->put('/etc/sudoers.d/brew', 'Cmnd_Alias BREW = /usr/local/bin/brew *
 %admin ALL=(root) NOPASSWD: BREW'.PHP_EOL);
     }
+
+    public function availablePhpVersions()
+    {
+        $rawVersions = $this->cli->runAsUser('brew ls --versions  | grep "^php\d\d "');
+
+        if (substr($rawVersions, 0, 3) !== 'php') {
+            throw new DomainException('No installed PHP versions found.');
+        }
+
+        return collect(explode(PHP_EOL, trim($rawVersions)))
+            ->map(function($item) {
+                list($name, $version) = explode(' ', $item, 2);
+                $underscorePosition = strpos($version, '_');
+                if ($underscorePosition !== false) {
+                    $version = substr($version, 0, $underscorePosition);
+                }
+
+                return [$name, $version];
+            });
+    }
+
+    public function changeLinkedPhp($versionName)
+    {
+        // Normalize version name
+        $versionName = strtolower($versionName);
+
+        $currentLink = $this->linkedPhp();
+        $availableVersions = $this->availablePhpVersions();
+
+        $version = $availableVersions->first(function($item) use ($versionName) {
+            return $item[0] === $versionName;
+        });
+
+        if ($version) {
+            list($realName, $version) = $version;
+            $this->cli->quietlyAsUser("brew unlink {$currentLink}");
+            $this->cli->runAsUser("brew link {$realName}");
+
+            return $version;
+        } else {
+            throw new DomainException("PHP version {$versionName} was not found.");
+        }
+    }
 }
